@@ -13,8 +13,9 @@ import matplotlib.pyplot as mt
 from matplotlib import figure
 import seaborn as sns
 import math
-'''
-read the data as dataframe 
+from sklearn import linear_model
+
+'''read the data as dataframe 
 '''
 hospital_Details=pd.read_csv("hospital_details.csv")
 #print(hospital_Details)
@@ -32,15 +33,14 @@ rename icd columns
 print(icd.columns)
 icd.columns = ['Prefix', 'Suffix', 'Old Values','Cause of illness by abbreviation', 'Cause of Illness','Type of Illness' ]
 #print(icd.columns)
-'''
-concat icd columns
+'''concat icd columns
 '''
 icd["ICDCODE"] = icd['Prefix'] +"."+ icd["Suffix"]
 #print(icd)
 '''
 drop prefix, suffix and old values 
 '''
-icd=icd.drop(['Prefix', 'Suffix', 'Old Values','Cause of illness by abbreviation'], axis=1)
+icd=icd.drop(['Suffix', 'Old Values','Cause of illness by abbreviation'], axis=1)
 print(icd)
 
 '''
@@ -60,8 +60,8 @@ hospital_Details=pd.merge(left=hospital_Details, right=icd, left_on="ICD",right_
 clean data by icd, admisson and discharge'''
 hospital_Details=hospital_Details.dropna(subset=["DISCHARGE.DATE"])
 #hospital_Details=hospital_Details.dropna(subset=["ICDCODE"])
-print(hospital_Details)
-print("5555")
+#print(hospital_Details)
+#print("5555")
 print(hospital_Details['SERVICE'].nunique())
 '''
 subtract and calculate duration
@@ -83,40 +83,59 @@ print(hospital_Details['SERVICE'].nunique())
 hospital_Details.groupby(by="SERVICE")
 print("hhhhhh")
 print(hospital_Details)
+#hospital_Details.to_csv("D:\hospital_Details1.csv")
 #item_counts = hospital_Details["SERVICE"].value_counts()
 #print(item_counts)
+
 '''
-group data by service and find central tendency age duration'''
+group data by service and find central tendency age duration groupby doctor and count'''
 Service_grp_duration=hospital_Details.groupby(['SERVICE'])['Duration']
 mean=Service_grp_duration.mean()
 #age_var=hospital_Details.groupby(['SERVICE'])['AGE'].std()
 age_mean=hospital_Details.groupby(['SERVICE'])['AGE'].mean()
 #newDF=pd.concat([mean, age_var], axis=1).reset_index()
-newDF=pd.concat([mean, age_mean], axis=1).reset_index()
-hospital_Details['DOCTOR']=hospital_Details['DOCTOR'].astype(str)
-#hospital_Details.groupby(['SERVICE'])['Duration'].median()
+#sex_group=hospital_Details.groupby(['SERVICE'])['SEX']
+doctor_count=hospital_Details.groupby(['SERVICE'])['DOCTOR'].count()
+patient_inSer=hospital_Details.groupby(['SERVICE'])["PROTOCOL.NUMBER"].count()
+Type_inSer=hospital_Details.groupby(['SERVICE'])["Prefix"].count()
 
-'''plot with respect to age for duration vs adult trauma
-first create group of age with respect to speciality 
-'''
-#df = sns.load_dataset("penguins")
-#hospital_Details["MEDIAN"]=hospital_Details.merge(median.to_frame(),left_index=True,right_index=True).reset_index()
-#print(hospital_Details)
-figure.Figure( figsize =(2000,1500) )
-ax=sns.barplot(data=newDF.round(), x="SERVICE", y="Duration", hue='AGE',errwidth=0,dodge=False)
-mt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0)
-ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right")
-mt.tight_layout()
-mt.show()
-#sns.barplot(data=newdf, x="AGE", y="Service_grp", hue="MEDIAN")
-'''
-plot with respect to sex for duration vs adult '''
+newDF=pd.concat([mean,age_mean,doctor_count,patient_inSer,Type_inSer], axis=1).reset_index()
+
 figure.Figure( figsize =(2000,1500) )
 ax=sns.barplot(data=hospital_Details.round(), x="SERVICE", y="Duration", hue='SEX',errwidth=0)
 mt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0)
 ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right")
 mt.tight_layout()
 mt.show()
+
+'''linear regression for multi variate data
+X = newDF[['AGE', 'DOCTOR']]
+y = newDF['Duration']
+regr = linear_model.LinearRegression()
+regr.fit(X, y) '''
+'''
+mt.plot(X, y, 'o')
+m, b = np.polyfit(X, y, 1)
+#mt.plot(X, m*X+b, color='red')
+'''
+#print(regr.coef_) 
+# Plot sepal width as a function of sepal_length across days
+g = sns.lmplot( data=newDF.round(),x="AGE", y="Duration", hue="SERVICE",height=5)
+# Use more informative axis labels than are provided by default
+g.set_axis_labels("AGE", "Duration")
+doc = sns.lmplot( data=newDF.round(),x="DOCTOR", y="Duration", hue="SERVICE",height=5)
+# Use more informative axis labels than are provided by default
+doc.set_axis_labels("DOCTOR", "Duration")
+fig, ax = mt.subplots()
+sns.regplot(x='Duration', y='DOCTOR', data=newDF.round(), ax=ax)
+ax2 = ax.twinx()
+sns.regplot(x='Duration', y='AGE', data=newDF.round(), ax=ax2, color='r')
+mt.show()
+
+# Use more informative axis labels than are provided by default
+
+
+
 '''
 plot with comorbidity'''
 figure.Figure( figsize =(2000,1500) )
@@ -126,23 +145,8 @@ ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right")
 mt.tight_layout()
 mt.show()
 
-#####################################################################################################################
 
-''''
-#plot for type of illness
-figure.Figure( figsize =(2000,1500) )
-ax=sns.barplot(data=hospital_Details.round(), x="SERVICE", y="Duration", hue='Type of Illness',errwidth=0)
-mt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0)
-ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right")
-#mt.tight_layout()
-mt.show()
+typ = sns.lmplot( data=newDF.round(),x="Prefix", y="Duration", hue="SERVICE",height=5)
+typ.set_axis_labels("Prefix", "Duration")
 
-#number of doctors in service
-figure.Figure( figsize =(2000,1500) )
-ax=sns.barplot(data=hospital_Details.round(), x="SERVICE", y="Duration", hue='DOCTOR',errwidth=0)
-mt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0)
-ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right")
-#mt.tight_layout()
-mt.show()
-''''
-###########################################################################################################################
+##################################################################################################################################
